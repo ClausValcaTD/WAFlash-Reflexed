@@ -16,6 +16,14 @@ Do NOT copy any Adobe, WAFlash, or proprietary binary code.
 
 ---
 
+## Dependencies (fetch yourself)
+
+- AVM2 VM: https://github.com/adobe-flash/avmplus
+- SWF Parser: https://github.com/open-flash/swf-parser
+- Lightspark reference: https://github.com/lightspark/lightspark
+
+---
+
 ## What to Build
 
 ### Step 1: Project Structure
