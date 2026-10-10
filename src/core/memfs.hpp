@@ -17,6 +17,12 @@
 #ifndef WAFLASH_CORE_MEMFS_HPP
 #define WAFLASH_CORE_MEMFS_HPP
 
+#include <string>
+
+namespace waflash {
+bool mountMemFS(const std::string& path);
+}
+
 void memfs_init(const char* mount_point);
 
 #endif // WAFLASH_CORE_MEMFS_HPP

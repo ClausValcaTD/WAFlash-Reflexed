@@ -19,6 +19,7 @@
 #include <cstring>
 #include <vector>
 #include <fstream>
+#include <iterator>
 #include <zlib.h>
 
 #ifdef HAS_LZMA
@@ -74,25 +75,41 @@ SWFLoader::SWFLoader() : m_loaded(false) {
 SWFLoader::~SWFLoader() {}
 
 bool SWFLoader::load(const std::string& url) {
-    std::ifstream file(url, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) {
-        std::printf("[SWFLoader] Failed to open SWF file: %s\n", url.c_str());
-        return false;
+    // Try direct path first
+    std::ifstream f(url, std::ios::binary);
+    if (f.is_open()) {
+        std::vector<uint8_t> data(
+            (std::istreambuf_iterator<char>(f)),
+            std::istreambuf_iterator<char>());
+        return loadFromMemory(data.data(), data.size());
     }
 
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    if (size < 8) {
-        return false;
+    // Try filename only (in case full path not found)
+    std::string filename = url.substr(url.find_last_of("/\\") + 1);
+    std::ifstream f2(filename, std::ios::binary);
+    if (f2.is_open()) {
+        std::vector<uint8_t> data(
+            (std::istreambuf_iterator<char>(f2)),
+            std::istreambuf_iterator<char>());
+        std::printf("[SWFLoader] Loaded from fallback path: %s\n",
+               filename.c_str());
+        return loadFromMemory(data.data(), data.size());
     }
 
-    std::vector<uint8_t> buffer(static_cast<size_t>(size));
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        return false;
+    // Try /waflashso/filename
+    std::string memfs_path = "/waflashso/" + filename;
+    std::ifstream f3(memfs_path, std::ios::binary);
+    if (f3.is_open()) {
+        std::vector<uint8_t> data(
+            (std::istreambuf_iterator<char>(f3)),
+            std::istreambuf_iterator<char>());
+        std::printf("[SWFLoader] Loaded from MEMFS: %s\n",
+               memfs_path.c_str());
+        return loadFromMemory(data.data(), data.size());
     }
 
-    return loadFromMemory(buffer.data(), buffer.size());
+    std::printf("[SWFLoader] Failed to open SWF file: %s\n", url.c_str());
+    return false;
 }
 
 bool SWFLoader::loadFromMemory(const uint8_t* data, size_t size) {

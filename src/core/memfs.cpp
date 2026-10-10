@@ -23,24 +23,39 @@
 #include <emscripten.h>
 #endif
 
-void memfs_init(const char* mount_point) {
-    // Mount MEMFS directory for SharedObjects (/waflashso)
+namespace waflash {
+
+bool mountMemFS(const std::string& path) {
 #ifdef __EMSCRIPTEN__
+    // Create directory in MEMFS
     EM_ASM({
+        var path = UTF8ToString($0);
         try {
-            FS.mkdir(UTF8ToString($0));
-            FS.mount(MEMFS, {}, UTF8ToString($0));
-        } catch (e) {
-            // Directory might already exist
+            FS.mkdir(path);
+            console.log('[MEMFS] Created directory: ' + path);
+        } catch(e) {
+            if (e.code !== 'EEXIST') {
+                console.warn('[MEMFS] mkdir failed: ' + e.message);
+            }
         }
-    }, mount_point);
+    }, path.c_str());
 #else
     // Native directory creation
     #if defined(_WIN32)
     // windows mkdir
     #else
-    mkdir(mount_point, 0755);
+    mkdir(path.c_str(), 0755);
     #endif
 #endif
-    std::printf("[MEMFS] Virtual filesystem mounted at '%s'\n", mount_point);
+
+    std::printf("[MEMFS] Virtual filesystem mounted at '%s'\n", path.c_str());
+    return true;
+}
+
+} // namespace waflash
+
+void memfs_init(const char* mount_point) {
+    if (mount_point) {
+        waflash::mountMemFS(mount_point);
+    }
 }

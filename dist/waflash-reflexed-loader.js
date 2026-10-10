@@ -86,60 +86,89 @@
     const M = window.Module;
     console.log('[WAFlash-ReFlexed] Runtime ready');
 
-    // Build argv matching the 4-param schema from architecture_spec.md:
-    // argv[0] = "player"
-    // argv[1] = swfUrl        (max 4095 bytes)
-    // argv[2] = "0"           (subsystem)
-    // argv[3] = "webgl"|"default" (renderer)
-    // argv[4] = "0"|"1"       (filters: 0=on, 1=off)
+    // ─── CRITICAL: Fetch SWF and write to MEMFS ───────────────
+    // Determine the virtual path inside MEMFS
+    // Use a simple flat path — no subdirectories needed
+    const swfFilename = swfUrl.split('/').pop() || 'game.swf';
+    const memfsPath   = '/waflashso/' + swfFilename;
+
+    console.log('[WAFlash-ReFlexed] Fetching SWF:', swfUrl);
+    const response = await fetch(swfUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch SWF: ${response.status} ${swfUrl}`);
+    }
+
+    const swfBytes = new Uint8Array(await response.arrayBuffer());
+    console.log('[WAFlash-ReFlexed] SWF fetched:', swfBytes.length, 'bytes');
+
+    // Write to Emscripten MEMFS
+    // MEMFS is mounted at /waflashso by our engine
+    try {
+        M.FS.writeFile(memfsPath, swfBytes);
+        console.log('[WAFlash-ReFlexed] SWF written to MEMFS:', memfsPath);
+    } catch(e) {
+        // /waflashso might not exist yet if _main hasn't run
+        // Write to root instead
+        try {
+            M.FS.writeFile('/' + swfFilename, swfBytes);
+            console.log('[WAFlash-ReFlexed] SWF written to MEMFS: /' + swfFilename);
+        } catch(e2) {
+            console.warn('[WAFlash-ReFlexed] MEMFS write failed:', e2);
+        }
+    }
+    // ──────────────────────────────────────────────────────────
+
+    // Build argv — pass the MEMFS path to _main, not the HTTP URL
     const renderer   = (options.gpu !== false) ? 'webgl' : 'default';
     const filterFlag = (options.enableFilters !== false) ? '0' : '1';
 
-    const argvStrings = ['player', swfUrl, '0', renderer, filterFlag];
+    // Try memfsPath first, fallback to filename only
+    const swfArgv = memfsPath;
+
+    const argvStrings = ['player', swfArgv, '0', renderer, filterFlag];
     const argc = argvStrings.length;
 
-    // Allocate argv array in WASM heap
+    console.log('[WAFlash-ReFlexed] Calling _main with:', argvStrings);
+
+    // Allocate argv in WASM heap
     const argvPtr = M._malloc(argc * 4);
     const ptrs = argvStrings.map(s => writeString(M, s));
     ptrs.forEach((ptr, i) => M.HEAP32[(argvPtr >> 2) + i] = ptr);
 
-    console.log('[WAFlash-ReFlexed] Calling _main with:', argvStrings);
-
-    // Call main() — starts the Flash engine
+    // Call _main()
     try {
-      M._main(argc, argvPtr);
-    } catch (e) {
-      // Emscripten throws on exit() — this is normal
-      if (!String(e).includes('ExitStatus')) throw e;
+        M._main(argc, argvPtr);
+    } catch(e) {
+        if (!String(e).includes('ExitStatus')) throw e;
     }
 
-    // Clean up argv pointers
+    // Cleanup argv
     ptrs.forEach(ptr => M._free(ptr));
     M._free(argvPtr);
 
-    // Start frame loop
+    // Frame loop
     let running = true;
     function tick() {
-      if (!running) return;
-      try {
-        if (M._engine_tick) M._engine_tick();
-      } catch(e) {
-        console.warn('[WAFlash-ReFlexed] tick error:', e);
-      }
-      requestAnimationFrame(tick);
+        if (!running) return;
+        try {
+            if (M._engine_tick) M._engine_tick();
+        } catch(e) {
+            console.warn('[WAFlash-ReFlexed] tick error:', e);
+        }
+        requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
 
     console.log('[WAFlash-ReFlexed] Engine running ▶');
 
     return {
-      play()  { try { M._Play();  } catch(e) {} },
-      stop()  { try { M._Stop();  } catch(e) {} },
-      get memory() { return M.HEAP8.buffer; },
-      destroy() {
-        running = false;
-        console.log('[WAFlash-ReFlexed] Destroyed');
-      }
+        play()   { try { M._Play();  } catch(e) {} },
+        stop()   { try { M._Stop();  } catch(e) {} },
+        get memory() { return M.HEAP8.buffer; },
+        destroy() {
+            running = false;
+            console.log('[WAFlash-ReFlexed] Destroyed');
+        }
     };
   }
 
