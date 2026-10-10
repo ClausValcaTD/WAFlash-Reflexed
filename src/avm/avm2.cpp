@@ -18,10 +18,24 @@
 #include <cstdio>
 #include <cstdlib>
 
-// Forward declarations or inclusion of avmplus headers when built with avmplus support
 #ifdef HAS_AVMPLUS
 #include "MMgc/GC.h"
+#include "MMgc/GCHeap.h"
 #include "AvmCore.h"
+#include "Toplevel.h"
+
+// Minimal AvmCore subclass for WAFlash
+class WaflashAvmCore : public avmplus::AvmCore {
+public:
+    WaflashAvmCore(MMgc::GC* gc) : avmplus::AvmCore(gc, avmplus::kApiVersion_AIR_1_51) {}
+
+    void interrupt(avmplus::Toplevel*, avmplus::InterruptReason) override {}
+    void stackOverflow(avmplus::Toplevel*) override {}
+
+    avmplus::String* readFileForEval(
+        avmplus::String* /*referencingFile*/,
+        avmplus::String* /*filename*/) override { return nullptr; }
+};
 #endif
 
 namespace waflash {
@@ -36,32 +50,62 @@ AVM2Context::~AVM2Context() {
 bool AVM2Context::init() {
     if (m_initialized) return true;
 
-    std::printf("[AVM2] Initializing ActionScript Virtual Machine (avmplus Core)\n");
+#ifdef HAS_AVMPLUS
+    // Initialize MMgc garbage collector
+    MMgc::GCHeap::Init();
+    MMgc::GCHeapConfig config;
+    MMgc::GCHeap* heap = MMgc::GCHeap::GetGCHeap();
+    m_gc = new MMgc::GC(heap, MMgc::GC::kIncrementalGC);
 
-    // Initialize VM structures and core context
+    // Initialize AvmCore
+    m_core = new WaflashAvmCore(m_gc);
+    m_initialized = (m_core != nullptr);
+
+    std::printf("[AVM2] avmplus AvmCore initialized (real VM)\n");
+#else
     m_initialized = true;
-    return true;
+    std::printf("[AVM2] AVM2 stub initialized (no avmplus)\n");
+#endif
+
+    return m_initialized;
 }
 
 bool AVM2Context::loadSWF(const std::string& url) {
     if (!m_initialized) return false;
-    std::printf("[AVM2] Loading SWF file into AvmCore from '%s'\n", url.c_str());
+
+#ifdef HAS_AVMPLUS
+    // Load SWF bytecode into avmplus
+    std::printf("[AVM2] Loading SWF into real AvmCore: %s\n", url.c_str());
+    // TODO: parse ABC bytecode from SWF tags and feed to AvmCore
+#else
+    std::printf("[AVM2] Stub: Loading SWF '%s'\n", url.c_str());
+#endif
+
     return true;
 }
 
 void AVM2Context::executeFrame() {
     if (!m_initialized) return;
-    // Execute ActionScript 2/3 frame ticks and events
+
+#ifdef HAS_AVMPLUS
+    if (m_core) {
+        // Execute pending ActionScript operations
+        // m_core->executeTimeout() or equivalent frame tick
+    }
+#endif
 }
 
 void AVM2Context::shutdown() {
-    if (m_initialized) {
-        m_core = nullptr;
-        m_gc = nullptr;
-        m_toplevel = nullptr;
-        m_initialized = false;
-        std::printf("[AVM2] AVM2 VM shut down\n");
-    }
+    if (!m_initialized) return;
+
+#ifdef HAS_AVMPLUS
+    delete m_core;   m_core = nullptr;
+    delete m_gc;     m_gc = nullptr;
+    MMgc::GCHeap::Destroy();
+#endif
+
+    m_initialized = false;
+    std::printf("[AVM2] AVM2 VM shut down\n");
 }
 
 } // namespace waflash
