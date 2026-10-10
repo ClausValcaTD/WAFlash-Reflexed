@@ -182,33 +182,35 @@ void AVM2Context::executeFrame() {
                 std::printf("[AVM2] PlaceObject2: depth=%d char=%d name='%s'\n",
                             depth, char_id, name.c_str());
 #ifdef __EMSCRIPTEN__
-                EM_ASM({
+                EM_ASM(({
                     var depth = $0;
                     var charId = $1;
-                    var name = UTF8ToString($2);
+                    var strName = UTF8ToString($2);
 
                     var canvas = document.getElementById("canvas") || document.getElementById("flash-canvas") || document.querySelector("canvas");
                     if (!canvas) return;
                     var ctx = canvas.getContext("2d");
                     if (!ctx) return;
 
-                    var colors = ["#3498db", "#e74c3c", "#2ecc71",
-                                  "#f39c12", "#9b59b6", "#1abc9c"];
+                    var colors = "#3498db;#e74c3c;#2ecc71;#f39c12;#9b59b6;#1abc9c".split(";");
                     var color = colors[depth % colors.length];
 
                     ctx.strokeStyle = color;
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(depth * 10, depth * 10,
-                                    Math.max(10, canvas.width - depth * 20),
-                                    Math.max(10, canvas.height - depth * 20));
 
-                    if (name.length > 0) {
+                    var rw = canvas.width - depth * 20;
+                    if (rw < 10) rw = 10;
+                    var rh = canvas.height - depth * 20;
+                    if (rh < 10) rh = 10;
+
+                    ctx.strokeRect(depth * 10, depth * 10, rw, rh);
+
+                    if (strName && strName.length > 0) {
                         ctx.fillStyle = color;
                         ctx.font = "11px monospace";
-                        ctx.fillText("obj[" + depth + "] " + name,
-                                      depth * 10 + 4, depth * 10 + 14);
+                        ctx.fillText("obj[" + depth + "] " + strName, depth * 10 + 4, depth * 10 + 14);
                     }
-                }, depth, char_id, name.c_str());
+                }), depth, char_id, name.c_str());
 #endif
                 break;
             }
