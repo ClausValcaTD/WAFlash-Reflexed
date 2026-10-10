@@ -10,9 +10,15 @@
 #include "avm/movie_clip.hpp"
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
 
-// Path to Hoshi SWFs — adjust if running from different directory
-#define HOSHI_PATH "/tmp/wasm_flash/games/hoshi1/"
+static std::string HOSHI_BASE;
+
+static std::string hoshi(const std::string& f) {
+    return HOSHI_BASE + f;
+}
 
 static int passed = 0;
 static int failed = 0;
@@ -26,7 +32,7 @@ void test_swf_parsing() {
 
     // main.swf
     waflash::SWFLoader main_swf;
-    bool ok = main_swf.load(HOSHI_PATH "main.swf");
+    bool ok = main_swf.load(hoshi("main.swf"));
     CHECK(ok, "main.swf loads");
     CHECK(main_swf.getVersion() == 8, "main.swf version = 8");
     CHECK(!main_swf.isAS3(), "main.swf is AS2");
@@ -34,7 +40,7 @@ void test_swf_parsing() {
 
     // stg_1.swf
     waflash::SWFLoader stg1;
-    ok = stg1.load(HOSHI_PATH "stg_1.swf");
+    ok = stg1.load(hoshi("stg_1.swf"));
     CHECK(ok, "stg_1.swf loads");
     CHECK(stg1.getHeader().frame_count == 2, "stg_1.swf has 2 frames");
     CHECK(stg1.getVersion() == 8, "stg_1.swf version = 8");
@@ -42,10 +48,10 @@ void test_swf_parsing() {
     // All 36 stages load
     int stages_ok = 0;
     for (int i = 1; i <= 36; i++) {
-        char path[256];
-        snprintf(path, sizeof(path), HOSHI_PATH "stg_%d.swf", i);
+        char filename[64];
+        snprintf(filename, sizeof(filename), "stg_%d.swf", i);
         waflash::SWFLoader s;
-        if (s.load(path) && s.getVersion() == 8) stages_ok++;
+        if (s.load(hoshi(filename)) && s.getVersion() == 8) stages_ok++;
     }
     printf("[INFO] %d/36 stages loaded successfully\n", stages_ok);
     CHECK(stages_ok >= 30, "At least 30/36 stages parse correctly");
@@ -69,7 +75,7 @@ void test_event_ordering() {
     waflash::MovieClip mc_load("mc_load", 10);
 
     // loadMovie called
-    mc_stg.loadMovie(HOSHI_PATH "stg_1.swf");
+    mc_stg.loadMovie(hoshi("stg_1.swf"));
 
     CHECK(mc_stg.getBytesTotal() > 0,
           "getBytesTotal() > 0 immediately after loadMovie()");
@@ -114,13 +120,13 @@ void test_all_stages_loadmovie() {
 
     int stages_ok = 0;
     for (int i = 1; i <= 36; i++) {
-        char path[256];
-        snprintf(path, sizeof(path), HOSHI_PATH "stg_%d.swf", i);
+        char filename[64];
+        snprintf(filename, sizeof(filename), "stg_%d.swf", i);
 
         waflash::MovieClip mc_stg("mc_stg", 1);
         waflash::MovieClip mc_load("mc_load", 10);
 
-        mc_stg.loadMovie(path);
+        mc_stg.loadMovie(hoshi(filename));
 
         bool done = false;
         mc_load.onEnterFrame = [&]() {
@@ -141,7 +147,7 @@ void test_all_stages_loadmovie() {
         if (done && mc_stg.getCurrentFrame() == 2) {
             stages_ok++;
         } else {
-            printf("  [WARN] stg_%d.swf did not reach frame 2\n", i);
+            printf("  [WARN] %s did not reach frame 2\n", filename);
         }
     }
 
@@ -150,10 +156,17 @@ void test_all_stages_loadmovie() {
 }
 
 int main() {
+    const char* env = std::getenv("HOSHI_PATH");
+    HOSHI_BASE = (env && std::strlen(env) > 0) ? env : "games/hoshi1/";
+    if (!HOSHI_BASE.empty() && HOSHI_BASE.back() != '/') {
+        HOSHI_BASE += '/';
+    }
+
     printf("╔══════════════════════════════════════════════╗\n");
     printf("║   WAFlash-ReFlexed: Hoshi Saga Test Suite   ║\n");
     printf("║   Fixing Ruffle issue #3615 (open 4 years)  ║\n");
     printf("╚══════════════════════════════════════════════╝\n");
+    printf("Using HOSHI_PATH: %s\n", HOSHI_BASE.c_str());
 
     test_swf_parsing();
     test_event_ordering();

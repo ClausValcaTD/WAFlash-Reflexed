@@ -141,6 +141,19 @@
       align-items: center;
       justify-content: center;
       margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .status-bar {
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .status-bar span {
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .player-screen {
@@ -151,11 +164,13 @@
       background-color: #000;
       border-radius: 0.5rem;
       overflow: hidden;
-      min-height: 400px;
+      min-height: 480px;
       position: relative;
     }
 
     canvas {
+      width: 640px;
+      height: 480px;
       max-width: 100%;
       height: auto;
       display: block;
@@ -187,7 +202,11 @@
       text-decoration: underline;
     }
   </style>
-  <script src="waflash-reflexed-loader.js" onerror="this.src='dist/waflash-reflexed-loader.js'"></script>
+
+  <!-- Load waflash-reflexed.js or loader -->
+  <script src="waflash-reflexed.js" onerror="console.warn('waflash-reflexed.js not found directly, checking fallback/loader')"></script>
+  <script src="waflash-reflexed-loader.js" onerror="console.warn('waflash-reflexed-loader.js not found')"></script>
+  <script src="waflash.min.js" onerror="console.warn('waflash.min.js fallback not found')"></script>
 </head>
 <body>
 
@@ -213,19 +232,24 @@
     <!-- Demo games -->
     <div class="card demos">
       <h3>Demo: Hoshi Saga</h3>
-      <button onclick="loadDemo('games/hoshi1/main.swf')">
-        ⭐ Play Hoshi Saga 1
+      <button id="demoBtn" onclick="loadHoshiDemo()">
+        ⭐ Play Hoshi Saga Demo
       </button>
     </div>
 
     <div class="card">
+      <div class="status-bar">
+        Engine Status: <span id="engineStatus">Ready</span>
+      </div>
+
       <div class="controls">
         <button id="playBtn" class="secondary">▶ Play</button>
-        <button id="stopBtn" class="secondary">⏸ Pause</button>
+        <button id="stopBtn" class="secondary">⏸ Stop</button>
+        <button id="reloadBtn" class="secondary">🔄 Reload</button>
       </div>
 
       <div class="player-screen" id="playerContainer">
-        <canvas id="canvas" width="550" height="400"></canvas>
+        <canvas id="canvas" width="640" height="480"></canvas>
       </div>
     </div>
   </div>
@@ -236,6 +260,7 @@
 
   <script>
     let playerInstance = null;
+    let currentSwfUrl = null;
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -243,6 +268,8 @@
     const loadUrlBtn = document.getElementById('loadUrlBtn');
     const playBtn = document.getElementById('playBtn');
     const stopBtn = document.getElementById('stopBtn');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const engineStatus = document.getElementById('engineStatus');
 
     // Drag and Drop
     dropZone.addEventListener('click', () => fileInput.click());
@@ -285,31 +312,59 @@
     });
 
     playBtn.addEventListener('click', () => {
-      if (playerInstance && playerInstance.play) {
+      if (playerInstance && typeof playerInstance.play === 'function') {
         playerInstance.play();
+      } else if (typeof Module !== 'undefined' && Module._Play) {
+        Module._Play();
       }
+      engineStatus.textContent = 'Running (Play)';
     });
 
     stopBtn.addEventListener('click', () => {
-      if (playerInstance && playerInstance.stop) {
+      if (playerInstance && typeof playerInstance.stop === 'function') {
         playerInstance.stop();
+      } else if (typeof Module !== 'undefined' && Module._Stop) {
+        Module._Stop();
+      }
+      engineStatus.textContent = 'Stopped';
+    });
+
+    reloadBtn.addEventListener('click', () => {
+      if (currentSwfUrl) {
+        loadSWF(currentSwfUrl);
       }
     });
 
-    function loadDemo(url) {
-      urlInput.value = url;
-      loadSWF(url);
+    async function loadHoshiDemo() {
+      const local = 'games/hoshi1/main.swf';
+      const remote = 'https://clausvalcatd.github.io/wasm_flash/hoshi10.swf';
+
+      try {
+        const r = await fetch(local, { method: 'HEAD' });
+        if (r.ok) return loadSWF(local);
+      } catch {}
+
+      loadSWF(remote);
     }
 
     async function loadSWF(swfUrl) {
+      currentSwfUrl = swfUrl;
       console.log('Loading SWF:', swfUrl);
+      engineStatus.textContent = 'Loading WAFlash-ReFlexed...';
+
       try {
         if (typeof createWaflashReflexed === 'function') {
-          playerInstance = await createWaflashReflexed(swfUrl, { gpu: true, enableFilters: true });
-          console.log('WAFlash-ReFlexed initialized.');
-        } else {
-          fallbackToOriginal(swfUrl);
+          playerInstance = await createWaflashReflexed(swfUrl, { canvas: document.getElementById('canvas'), gpu: true });
+          engineStatus.textContent = 'WAFlash-ReFlexed Active';
+          return;
         }
+
+        if (typeof Module !== 'undefined' && Module.ccall) {
+          engineStatus.textContent = 'WAFlash-ReFlexed Active (Emscripten)';
+          return;
+        }
+
+        fallbackToOriginal(swfUrl);
       } catch (err) {
         console.warn('Failed to load with WAFlash-ReFlexed loader:', err);
         fallbackToOriginal(swfUrl);
@@ -318,9 +373,12 @@
 
     function fallbackToOriginal(swfUrl) {
       console.log('Attempting fallback to original waflash.wasm...');
+      engineStatus.textContent = 'Falling back to WAFlash Original...';
       if (typeof window.waflashRun === 'function') {
         window.waflashRun(swfUrl);
+        engineStatus.textContent = 'WAFlash Original Active';
       } else {
+        engineStatus.textContent = 'Engine Load Failed';
         console.warn('Original waflash fallback unavailable.');
       }
     }

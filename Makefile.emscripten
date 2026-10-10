@@ -1,9 +1,9 @@
-EMCC     = emcc
-CXX_STD  = -std=c++17
-OPT      = -O2
-OUTDIR   = dist
+EMCC    = emcc
+OPT     = -O2
+OUTDIR  = dist
 
-SOURCES  = \
+SOURCES = \
+  src/main.cpp \
   src/core/engine.cpp \
   src/core/play_stop.cpp \
   src/core/memfs.cpp \
@@ -14,15 +14,13 @@ SOURCES  = \
   src/render/canvas_renderer.cpp \
   src/audio/audio.cpp \
   src/bridge/external_interface.cpp \
-  src/memory/allocator.cpp \
-  src/main.cpp
-
-INCLUDES = -Isrc/
+  src/memory/allocator.cpp
 
 EXPORTED_FUNCTIONS = '["_main","_Play","_Stop","_engine_tick","_reopenBuffer","_invokeExternalCallback","_malloc","_free","_strlen"]'
 EXPORTED_RUNTIME   = '["ccall","cwrap","FS","MEMFS"]'
 
-WASM_FLAGS = \
+FLAGS = \
+  -std=c++17 \
   -s WASM=1 \
   -s INITIAL_MEMORY=16777216 \
   -s MAXIMUM_MEMORY=2147483648 \
@@ -32,19 +30,15 @@ WASM_FLAGS = \
   -s EXPORTED_FUNCTIONS=$(EXPORTED_FUNCTIONS) \
   -s EXPORTED_RUNTIME_METHODS=$(EXPORTED_RUNTIME) \
   -s ENVIRONMENT=web \
-  -s MODULARIZE=0 \
-  -s ASSERTIONS=0
+  -s ASSERTIONS=0 \
+  -Isrc/
 
-all: $(OUTDIR)/waflash-reflexed.wasm
-
-$(OUTDIR)/waflash-reflexed.wasm: $(SOURCES)
+all:
 	mkdir -p $(OUTDIR)
-	$(EMCC) $(CXX_STD) $(OPT) $(INCLUDES) $(WASM_FLAGS) \
-	  $(SOURCES) \
-	  -o $(OUTDIR)/waflash-reflexed.js
+	$(EMCC) $(OPT) $(FLAGS) $(SOURCES) -o $(OUTDIR)/waflash-reflexed.js
+	@echo "Build complete: $(OUTDIR)/waflash-reflexed.wasm"
 
 clean:
-	rm -rf $(OUTDIR)/waflash-reflexed.js \
-	       $(OUTDIR)/waflash-reflexed.wasm
+	rm -f $(OUTDIR)/waflash-reflexed.js $(OUTDIR)/waflash-reflexed.wasm
 
 .PHONY: all clean
