@@ -66,6 +66,17 @@ jobs:
             tests/test_hoshi.cpp \
             -o build/test_hoshi -lz
 
+      - name: Download test games if missing
+        run: |
+          if [ ! -f "games/hoshi1/main.swf" ]; then
+            mkdir -p games/hoshi1
+            cd games/hoshi1
+            curl -sO https://clausvalcatd.github.io/wasm_flash/games/hoshi1/main.swf
+            for i in $(seq 1 36); do
+              curl -sO https://clausvalcatd.github.io/wasm_flash/games/hoshi1/stg_${i}.swf
+            done
+          fi
+
       - name: Run Hoshi Saga tests
         run: ./build/test_hoshi
         env:
