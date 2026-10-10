@@ -28,7 +28,7 @@ struct EngineContext {
     void* vtable;               // offset 0
     int32_t subsystem_flags;    // offset 8
     uint8_t pad0[120];          // offset 12 -> 132
-    int64_t timeline_counter;   // offset 132 (long index 129 in 4-byte/8-byte alignment)
+    int64_t timeline_counter;   // offset 132
     int64_t frame_state;        // offset 140
     double float_constants;     // offset 148
     uint8_t pad1[102];          // offset 156 -> 258
@@ -52,7 +52,15 @@ static_assert(offsetof(EngineContext, reserved) == 1106, "reserved must be at by
 
 extern EngineContext* g_engine;
 
+namespace waflash {
+    class AVM2Context;
+}
+
+extern waflash::AVM2Context* g_avm2;
+
 void engine_init(const char* swf_url, bool webgl, bool disable_filters);
 EngineContext* get_engine_context();
+
+extern "C" void engine_tick();
 
 #endif // WAFLASH_CORE_ENGINE_HPP

@@ -20,13 +20,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(
     src/
+    deps/avmplus/core
+    deps/avmplus/MMgc
+    deps/avmplus
+    deps/swf-parser/include
 )
 
-set(SOURCES
-    src/main.cpp
+set(ENGINE_SOURCES
     src/core/engine.cpp
     src/core/play_stop.cpp
     src/core/memfs.cpp
+    src/swf/swf_loader.cpp
     src/avm/avm2.cpp
     src/render/webgl_renderer.cpp
     src/render/canvas_renderer.cpp
@@ -35,7 +39,7 @@ set(SOURCES
     src/memory/allocator.cpp
 )
 
-add_executable(waflash-reflexed ${SOURCES})
+add_executable(waflash-reflexed src/main.cpp ${ENGINE_SOURCES})
 
 # Target compilation options
 if(MSVC)
@@ -43,3 +47,6 @@ if(MSVC)
 else()
     target_compile_options(waflash-reflexed PRIVATE -Wall -Wextra)
 endif()
+
+# Test target
+add_executable(test_engine tests/test_engine.cpp ${ENGINE_SOURCES})
