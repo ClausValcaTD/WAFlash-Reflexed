@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WAFlash-ReFlexed Player</title>
+  <style>
+    :root {
+      --bg-color: #0a0a0f;
+      --card-bg: #12121a;
+      --accent: #f97316;
+      --accent-hover: #ea580c;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #1f2937;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 0.5rem;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background-color: rgba(249, 115, 22, 0.05);
+    }
+
+    .drop-zone p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+
+    .url-input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background-color: var(--bg-color);
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      padding: 0.6rem 0.8rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      background-color: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 0.375rem;
+      padding: 0.6rem 1.2rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--accent-hover);
+    }
+
+    button.secondary {
+      background-color: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    button.secondary:hover {
+      background-color: var(--border);
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .player-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #000;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      min-height: 400px;
+      position: relative;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .demos {
+      margin-top: 0.5rem;
+    }
+
+    .demos h3 {
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+  <script src="waflash-reflexed-loader.js" onerror="this.src='dist/waflash-reflexed-loader.js'"></script>
+</head>
+<body>
+
+  <header>
+    <h1>WAFlash-<span>ReFlexed</span></h1>
+    <p class="subtitle">Clean-room WebAssembly Flash Player Engine</p>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <div class="drop-zone" id="dropZone">
+        <strong>📁 Drag & Drop SWF file here</strong>
+        <p>or click to select a local file</p>
+        <input type="file" id="fileInput" accept=".swf" style="display: none;">
+      </div>
+
+      <div class="url-input-group">
+        <input type="text" id="urlInput" placeholder="Enter SWF URL (e.g. games/hoshi1/main.swf)">
+        <button id="loadUrlBtn">Load SWF</button>
+      </div>
+    </div>
+
+    <!-- Demo games -->
+    <div class="card demos">
+      <h3>Demo: Hoshi Saga</h3>
+      <button onclick="loadDemo('games/hoshi1/main.swf')">
+        ⭐ Play Hoshi Saga 1
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <button id="playBtn" class="secondary">▶ Play</button>
+        <button id="stopBtn" class="secondary">⏸ Pause</button>
+      </div>
+
+      <div class="player-screen" id="playerContainer">
+        <canvas id="canvas" width="550" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Apache License 2.0 — Flash preservation. Free forever. 🇪🇬</p>
+  </footer>
+
+  <script>
+    let playerInstance = null;
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const urlInput = document.getElementById('urlInput');
+    const loadUrlBtn = document.getElementById('loadUrlBtn');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    // Drag and Drop
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.name.endsWith('.swf')) {
+          const url = URL.createObjectURL(file);
+          loadSWF(url);
+        } else {
+          alert('Please drop a .swf file.');
+        }
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        const url = URL.createObjectURL(e.target.files[0]);
+        loadSWF(url);
+      }
+    });
+
+    loadUrlBtn.addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      if (url) {
+        loadSWF(url);
+      }
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (playerInstance && playerInstance.play) {
+        playerInstance.play();
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (playerInstance && playerInstance.stop) {
+        playerInstance.stop();
+      }
+    });
+
+    function loadDemo(url) {
+      urlInput.value = url;
+      loadSWF(url);
+    }
+
+    async function loadSWF(swfUrl) {
+      console.log('Loading SWF:', swfUrl);
+      try {
+        if (typeof createWaflashReflexed === 'function') {
+          playerInstance = await createWaflashReflexed(swfUrl, { gpu: true, enableFilters: true });
+          console.log('WAFlash-ReFlexed initialized.');
+        } else {
+          fallbackToOriginal(swfUrl);
+        }
+      } catch (err) {
+        console.warn('Failed to load with WAFlash-ReFlexed loader:', err);
+        fallbackToOriginal(swfUrl);
+      }
+    }
+
+    function fallbackToOriginal(swfUrl) {
+      console.log('Attempting fallback to original waflash.wasm...');
+      if (typeof window.waflashRun === 'function') {
+        window.waflashRun(swfUrl);
+      } else {
+        console.warn('Original waflash fallback unavailable.');
+      }
+    }
+  </script>
+</body>
+</html>
