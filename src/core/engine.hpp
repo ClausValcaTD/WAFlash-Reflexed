@@ -25,7 +25,7 @@
 
 #pragma pack(push, 1)
 struct EngineContext {
-    void* vtable;               // offset 0
+    uint64_t vtable;            // offset 0
     int32_t subsystem_flags;    // offset 8
     uint8_t pad0[120];          // offset 12 -> 132
     int64_t timeline_counter;   // offset 132
