@@ -3,23 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Required for SharedArrayBuffer (WebAssembly threads) -->
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
   <title>WAFlash-ReFlexed Player</title>
 
-  <!-- Eruda Mobile DevTools (debug panel) -->
+  <!-- Eruda mobile devtools -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda@3.4.1/eruda.min.js"></script>
   <script>
-    // Only load Eruda when ?debug=1 is in URL or on mobile
-    // Avoids loading on desktop where real devtools exist
-    const isDebugMode = new URLSearchParams(location.search).has('debug');
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    if (isDebugMode || isMobile) {
-      (function () {
-        var src = 'https://cdn.jsdelivr.net/npm/eruda@3.4.1/eruda.min.js';
-        if (!/eruda/.test(navigator.userAgent) && !/undefined/.test(src)) {
-          document.write('<script src="' + src + '"><\/script>');
-          document.write('<script>eruda.init()<\/script>');
-        }
-      })();
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent) ||
+        new URLSearchParams(location.search).has('debug')) {
+      eruda.init();
     }
   </script>
 
@@ -222,10 +216,8 @@
     }
   </style>
 
-  <!-- Load waflash-reflexed.js or loader -->
-  <script src="waflash-reflexed.js" onerror="console.warn('waflash-reflexed.js not found directly, checking fallback/loader')"></script>
-  <script src="waflash-reflexed-loader.js" onerror="console.warn('waflash-reflexed-loader.js not found')"></script>
-  <script src="waflash.min.js" onerror="console.warn('waflash.min.js fallback not found')"></script>
+  <!-- WAFlash-ReFlexed loader -->
+  <script src="waflash-reflexed-loader.js"></script>
 </head>
 <body>
 
@@ -368,37 +360,21 @@
 
     async function loadSWF(swfUrl) {
       currentSwfUrl = swfUrl;
-      console.log('Loading SWF:', swfUrl);
+      console.log('[Player] Loading:', swfUrl);
       engineStatus.textContent = 'Loading WAFlash-ReFlexed...';
 
       try {
-        if (typeof createWaflashReflexed === 'function') {
-          playerInstance = await createWaflashReflexed(swfUrl, { canvas: document.getElementById('canvas'), gpu: true });
-          engineStatus.textContent = 'WAFlash-ReFlexed Active';
-          return;
-        }
+        playerInstance = await createWaflashReflexed(swfUrl, {
+          gpu: true,
+          enableFilters: true,
+          canvas: document.getElementById('canvas'),
+          basePath: './'
+        });
 
-        if (typeof Module !== 'undefined' && Module.ccall) {
-          engineStatus.textContent = 'WAFlash-ReFlexed Active (Emscripten)';
-          return;
-        }
-
-        fallbackToOriginal(swfUrl);
+        engineStatus.textContent = 'Engine running ▶';
       } catch (err) {
-        console.warn('Failed to load with WAFlash-ReFlexed loader:', err);
-        fallbackToOriginal(swfUrl);
-      }
-    }
-
-    function fallbackToOriginal(swfUrl) {
-      console.log('Attempting fallback to original waflash.wasm...');
-      engineStatus.textContent = 'Falling back to WAFlash Original...';
-      if (typeof window.waflashRun === 'function') {
-        window.waflashRun(swfUrl);
-        engineStatus.textContent = 'WAFlash Original Active';
-      } else {
-        engineStatus.textContent = 'Engine Load Failed';
-        console.warn('Original waflash fallback unavailable.');
+        engineStatus.textContent = 'Failed: ' + err.message;
+        console.error('[Player] Error:', err);
       }
     }
   </script>
