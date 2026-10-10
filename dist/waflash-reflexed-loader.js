@@ -45,7 +45,7 @@ async function createWaflashReflexed(swfUrl, options = {}) {
         wasmModule = result.instance;
     }
 
-    const { _main, _Play, _Stop, _malloc, _free } = wasmModule.exports;
+    const { _main, _Play, _Stop, _engine_tick, _malloc, _free } = wasmModule.exports;
 
     const renderer = options.gpu ? "webgl" : "default";
     const filterFlag = options.enableFilters ? "0" : "1";
@@ -74,6 +74,19 @@ async function createWaflashReflexed(swfUrl, options = {}) {
         }
 
         _main(argvStrings.length, argvPtr);
+    }
+
+    // Frame loop
+    function tick() {
+        if (typeof _engine_tick === 'function') {
+            _engine_tick();
+        }
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(tick);
+        }
+    }
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(tick);
     }
 
     return {

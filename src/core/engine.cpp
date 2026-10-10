@@ -15,11 +15,13 @@
  */
 
 #include "engine.hpp"
+#include "avm/avm2.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
 
 EngineContext* g_engine = nullptr;
+waflash::AVM2Context* g_avm2 = nullptr;
 
 void engine_init(const char* swf_url, bool webgl, bool disable_filters) {
     (void)swf_url;
@@ -40,8 +42,29 @@ void engine_init(const char* swf_url, bool webgl, bool disable_filters) {
         g_engine->telemetry_flag = 0;
         g_engine->reserved = 0;
     }
+
+    if (!g_avm2) {
+        g_avm2 = new waflash::AVM2Context();
+        g_avm2->init();
+        if (swf_url) {
+            g_avm2->loadSWF(swf_url);
+        }
+    }
 }
 
 EngineContext* get_engine_context() {
     return g_engine;
+}
+
+extern "C" void engine_tick() {
+    if (!g_engine) return;
+    if (g_engine->playback_state != STATE_PLAYING) return;
+
+    // 1. Execute AVM2 frame tick
+    if (g_avm2) {
+        g_avm2->executeFrame();
+    }
+
+    // 2. Advance MovieClip timelines
+    g_engine->timeline_counter++;
 }

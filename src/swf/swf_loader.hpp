@@ -14,41 +14,39 @@
  * limitations under the License.
  */
 
-#ifndef WAFLASH_AVM_AVM2_HPP
-#define WAFLASH_AVM_AVM2_HPP
+#ifndef WAFLASH_SWF_SWF_LOADER_HPP
+#define WAFLASH_SWF_SWF_LOADER_HPP
 
+#include <cstdint>
+#include <cstddef>
 #include <string>
-
-namespace MMgc {
-    class GC;
-}
-
-namespace avmplus {
-    class AvmCore;
-    class Toplevel;
-}
 
 namespace waflash {
 
-class AVM2Context {
+struct SWFHeader {
+    char     signature[3];  // "FWS", "CWS", or "ZWS"
+    uint8_t  version;
+    uint32_t file_length;
+    uint16_t frame_rate;
+    uint16_t frame_count;
+};
+
+class SWFLoader {
 public:
-    AVM2Context();
-    ~AVM2Context();
+    SWFLoader();
+    ~SWFLoader();
 
-    bool init();
-    bool loadSWF(const std::string& url);
-    void executeFrame();
-    void shutdown();
-
-    avmplus::AvmCore* getAvmCore() const { return m_core; }
+    bool load(const std::string& url);
+    bool loadFromMemory(const uint8_t* data, size_t size);
+    const SWFHeader& getHeader() const;
+    uint8_t getVersion() const;
+    bool isAS3() const; // SWF version >= 9
 
 private:
-    bool m_initialized;
-    MMgc::GC* m_gc;
-    avmplus::AvmCore* m_core;
-    avmplus::Toplevel* m_toplevel;
+    SWFHeader m_header;
+    bool m_loaded;
 };
 
 } // namespace waflash
 
-#endif // WAFLASH_AVM_AVM2_HPP
+#endif // WAFLASH_SWF_SWF_LOADER_HPP
