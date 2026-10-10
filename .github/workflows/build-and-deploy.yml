@@ -140,6 +140,12 @@ jobs:
         run: |
           mkdir -p pages/
 
+          cat > pages/_headers << 'EOF'
+          /*
+            Cross-Origin-Opener-Policy: same-origin
+            Cross-Origin-Embedder-Policy: require-corp
+          EOF
+
           # Engine files
           cp dist/waflash-reflexed.wasm     pages/
           cp dist/waflash-reflexed.js       pages/
