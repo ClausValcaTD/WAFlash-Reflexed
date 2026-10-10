@@ -18,7 +18,7 @@ SOURCES = \
   src/bridge/external_interface.cpp \
   src/memory/allocator.cpp
 
-EXPORTED_FUNCTIONS = '["_main","_Play","_Stop","_engine_tick","_reopenBuffer","_invokeExternalCallback","_malloc","_free","_strlen"]'
+EXPORTED_FUNCTIONS = '["_main","_Play","_Stop","_engine_tick","_reopenBuffer","_invokeExternalCallback","_malloc","_free","_strlen","_setBackgroundColor","_getBackgroundColor","_isFrameReady","_signalFrameReady","_setSWFDimensions","_getSWFWidth","_getSWFHeight"]'
 EXPORTED_RUNTIME   = '["ccall","cwrap","FS","MEMFS"]'
 
 FLAGS = \

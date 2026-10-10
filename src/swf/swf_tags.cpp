@@ -1,3 +1,4 @@
+#include "core/engine.hpp"
 // Copyright 2025 WAFlash-ReFlexed Authors
 // Apache License 2.0
 
@@ -68,6 +69,7 @@ bool SWFTagParser::parseHeader(const uint8_t* body, size_t size) {
     offset += 2;
 
     m_tags_offset = offset;
+    setSWFDimensions(static_cast<int>(m_frame_size.width()), static_cast<int>(m_frame_size.height()));
 
     std::printf("[SWFTagParser] Frame: %.0fx%.0f @ %.1f fps, %d frames\n",
                 m_frame_size.width(), m_frame_size.height(),
@@ -110,6 +112,7 @@ bool SWFTagParser::parse(const uint8_t* body, size_t size, TagCallback callback)
         // Handle SetBackgroundColor inline
         if (tag.id == TagID::SetBackgroundColor && tag_len >= 3) {
             m_bg_color = { tag.data[0], tag.data[1], tag.data[2], 255 };
+            setBackgroundColor(tag.data[0], tag.data[1], tag.data[2]);
             std::printf("[SWFTagParser] Background: rgb(%d,%d,%d)\n",
                         m_bg_color.r, m_bg_color.g, m_bg_color.b);
         }

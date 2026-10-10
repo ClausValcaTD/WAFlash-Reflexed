@@ -1,3 +1,7 @@
+#include "core/engine.hpp"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 /*
  * Copyright 2025 WAFlash-ReFlexed Authors
  *
@@ -145,6 +149,9 @@ void AVM2Context::executeFrame() {
     for (const SWFTag& tag : frame.tags) {
         switch (tag.id) {
             case TagID::SetBackgroundColor:
+                if (tag.length >= 3) {
+                    setBackgroundColor(tag.data[0], tag.data[1], tag.data[2]);
+                }
                 break;
 
             case TagID::PlaceObject2: {
@@ -174,6 +181,37 @@ void AVM2Context::executeFrame() {
                 g_display_list.placeObject(depth, char_id, name);
                 std::printf("[AVM2] PlaceObject2: depth=%d char=%d name='%s'\n",
                             depth, char_id, name.c_str());
+#ifdef __EMSCRIPTEN__
+                EM_ASM(({
+                    var depth = $0;
+                    var charId = $1;
+                    var strName = UTF8ToString($2);
+
+                    var canvas = document.getElementById("canvas") || document.getElementById("flash-canvas") || document.querySelector("canvas");
+                    if (!canvas) return;
+                    var ctx = canvas.getContext("2d");
+                    if (!ctx) return;
+
+                    var colors = "#3498db;#e74c3c;#2ecc71;#f39c12;#9b59b6;#1abc9c".split(";");
+                    var color = colors[depth % colors.length];
+
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+
+                    var rw = canvas.width - depth * 20;
+                    if (rw < 10) rw = 10;
+                    var rh = canvas.height - depth * 20;
+                    if (rh < 10) rh = 10;
+
+                    ctx.strokeRect(depth * 10, depth * 10, rw, rh);
+
+                    if (strName && strName.length > 0) {
+                        ctx.fillStyle = color;
+                        ctx.font = "11px monospace";
+                        ctx.fillText("obj[" + depth + "] " + strName, depth * 10 + 4, depth * 10 + 14);
+                    }
+                }), depth, char_id, name.c_str());
+#endif
                 break;
             }
 
@@ -202,6 +240,7 @@ void AVM2Context::executeFrame() {
                             g_current_frame);
                 std::printf("[Renderer] Frame rendered (display list: %zu objects)\n",
                             g_display_list.objects().size());
+                signalFrameReady();
                 break;
 
             default:

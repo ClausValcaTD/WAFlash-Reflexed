@@ -146,12 +146,53 @@
     ptrs.forEach(ptr => M._free(ptr));
     M._free(argvPtr);
 
+    // Check and set canvas dimensions from WASM
+    if (M._getSWFWidth && M._getSWFHeight && canvas) {
+        const w = M._getSWFWidth();
+        const h = M._getSWFHeight();
+        if (w > 0 && h > 0) {
+            canvas.width  = w;
+            canvas.height = h;
+            console.log(`[WAFlash-ReFlexed] Canvas set to: ${w}x${h}`);
+        }
+    }
+
+    const ctx = canvas ? canvas.getContext('2d') : null;
+
     // Frame loop
     let running = true;
     function tick() {
         if (!running) return;
         try {
+            if (M._getSWFWidth && M._getSWFHeight && canvas) {
+                const w = M._getSWFWidth();
+                const h = M._getSWFHeight();
+                if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+                    canvas.width  = w;
+                    canvas.height = h;
+                }
+            }
+
             if (M._engine_tick) M._engine_tick();
+
+            if (ctx && M._isFrameReady && M._isFrameReady()) {
+                const bgColor = M._getBackgroundColor ? M._getBackgroundColor() : 0xFFFFFF;
+                const r = (bgColor >> 16) & 0xFF;
+                const g = (bgColor >> 8)  & 0xFF;
+                const b =  bgColor        & 0xFF;
+
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(0, 0, canvas.width, 24);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px monospace';
+                ctx.fillText(
+                    `WAFlash-ReFlexed v0.1.0 | Frame rendering active`,
+                    8, 16
+                );
+            }
         } catch(e) {
             console.warn('[WAFlash-ReFlexed] tick error:', e);
         }
