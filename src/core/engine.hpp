@@ -64,3 +64,11 @@ EngineContext* get_engine_context();
 extern "C" void engine_tick();
 
 #endif // WAFLASH_CORE_ENGINE_HPP
+
+extern "C" void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b);
+extern "C" uint32_t getBackgroundColor();
+extern "C" int isFrameReady();
+extern "C" void signalFrameReady();
+extern "C" void setSWFDimensions(int w, int h);
+extern "C" int getSWFWidth();
+extern "C" int getSWFHeight();

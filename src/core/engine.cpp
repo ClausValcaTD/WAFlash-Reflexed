@@ -72,3 +72,45 @@ extern "C" void engine_tick() {
     if (g_avm2) g_avm2->executeFrame();
     g_engine->timeline_counter++;
 }
+
+
+// Background color and SWF dimensions exported to JS/WASM
+static uint8_t g_bg_r = 255, g_bg_g = 255, g_bg_b = 255;
+static int g_frame_ready = 0;
+static int g_swf_width = 550;
+static int g_swf_height = 400;
+
+extern "C" void setBackgroundColor(uint8_t r, uint8_t g, uint8_t b) {
+    g_bg_r = r; g_bg_g = g; g_bg_b = b;
+    std::printf("[Engine] Background color: rgb(%d,%d,%d)\n", r, g, b);
+}
+
+extern "C" uint32_t getBackgroundColor() {
+    return ((uint32_t)g_bg_r << 16) |
+           ((uint32_t)g_bg_g << 8)  |
+           ((uint32_t)g_bg_b);
+}
+
+extern "C" int isFrameReady() {
+    int r = g_frame_ready;
+    g_frame_ready = 0;
+    return r;
+}
+
+extern "C" void signalFrameReady() {
+    g_frame_ready = 1;
+}
+
+extern "C" void setSWFDimensions(int w, int h) {
+    g_swf_width = w;
+    g_swf_height = h;
+    std::printf("[Engine] SWF Dimensions set: %dx%d\n", w, h);
+}
+
+extern "C" int getSWFWidth() {
+    return g_swf_width;
+}
+
+extern "C" int getSWFHeight() {
+    return g_swf_height;
+}
