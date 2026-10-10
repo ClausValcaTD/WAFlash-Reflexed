@@ -187,13 +187,13 @@ void AVM2Context::executeFrame() {
                     var charId = $1;
                     var name = UTF8ToString($2);
 
-                    var canvas = document.getElementById('canvas') || document.getElementById('flash-canvas') || document.querySelector('canvas');
+                    var canvas = document.getElementById("canvas") || document.getElementById("flash-canvas") || document.querySelector("canvas");
                     if (!canvas) return;
-                    var ctx = canvas.getContext('2d');
+                    var ctx = canvas.getContext("2d");
                     if (!ctx) return;
 
-                    var colors = ['#3498db','#e74c3c','#2ecc71',
-                                  '#f39c12','#9b59b6','#1abc9c'];
+                    var colors = ["#3498db", "#e74c3c", "#2ecc71",
+                                  "#f39c12", "#9b59b6", "#1abc9c"];
                     var color = colors[depth % colors.length];
 
                     ctx.strokeStyle = color;
@@ -202,10 +202,10 @@ void AVM2Context::executeFrame() {
                                     Math.max(10, canvas.width - depth * 20),
                                     Math.max(10, canvas.height - depth * 20));
 
-                    if (name) {
+                    if (name.length > 0) {
                         ctx.fillStyle = color;
-                        ctx.font = '11px monospace';
-                        ctx.fillText('obj[' + depth + '] ' + name,
+                        ctx.font = "11px monospace";
+                        ctx.fillText("obj[" + depth + "] " + name,
                                       depth * 10 + 4, depth * 10 + 14);
                     }
                 }, depth, char_id, name.c_str());
