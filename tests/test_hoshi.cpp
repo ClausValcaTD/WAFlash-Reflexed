@@ -3,10 +3,9 @@
 //
 // Tests against actual Hoshi Saga SWF files
 // from wasm_flash/games/hoshi1/
-//
-// If these pass → we fixed the bug Ruffle couldn't fix since 2021
 
 #include "swf/swf_loader.hpp"
+#include "swf/swf_tags.hpp"
 #include "avm/movie_clip.hpp"
 #include <cassert>
 #include <cstdio>
@@ -57,24 +56,58 @@ void test_swf_parsing() {
     CHECK(stages_ok >= 30, "At least 30/36 stages parse correctly");
 }
 
+void test_tag_parsing() {
+    printf("\n=== SWF Tag Parser Tests ===\n");
+
+    waflash::SWFLoader loader;
+    assert(loader.load(hoshi("main.swf")));
+
+    const auto& body = loader.getDecompressedBody();
+    assert(!body.empty());
+
+    waflash::SWFTagParser parser;
+
+    int tag_count = 0;
+    int show_frame_count = 0;
+    int do_action_count  = 0;
+    int place_obj_count  = 0;
+    bool found_bg_color  = false;
+
+    parser.parse(body.data(), body.size(),
+        [&](const waflash::SWFTag& tag) {
+            tag_count++;
+            switch(tag.id) {
+                case waflash::TagID::ShowFrame:
+                    show_frame_count++; break;
+                case waflash::TagID::DoAction:
+                    do_action_count++; break;
+                case waflash::TagID::PlaceObject2:
+                    place_obj_count++; break;
+                case waflash::TagID::SetBackgroundColor:
+                    found_bg_color = true; break;
+                default: break;
+            }
+        });
+
+    printf("[Test] Tags parsed: %d total\n", tag_count);
+    printf("[Test] ShowFrame: %d (expected ~59)\n", show_frame_count);
+    printf("[Test] DoAction:  %d (expected ~10)\n", do_action_count);
+    printf("[Test] PlaceObj2: %d\n", place_obj_count);
+
+    CHECK(tag_count > 50,       "main.swf has many tags");
+    CHECK(show_frame_count > 50,"ShowFrame count ~59");
+    CHECK(do_action_count >= 10,"DoAction count >= 10");
+    CHECK(found_bg_color,       "SetBackgroundColor found");
+    CHECK(parser.frameRate() > 0, "Frame rate parsed");
+    CHECK(parser.frameSize().width() > 0, "Frame size parsed");
+}
+
 void test_event_ordering() {
     printf("\n=== Event Ordering Tests (The Ruffle Bug Fix) ===\n");
-
-    // Simulate exact Hoshi Saga AS2 sequence:
-    //
-    // main.swf frame 2:
-    //   stop();
-    //   this.mc_stg.loadMovie("stg_1.swf");
-    //   mc_load.onEnterFrame = function() {
-    //       if (mc_stg.getBytesLoaded() == mc_stg.getBytesTotal()) {
-    //           mc_stg.play();
-    //       }
-    //   };
 
     waflash::MovieClip mc_stg("mc_stg", 1);
     waflash::MovieClip mc_load("mc_load", 10);
 
-    // loadMovie called
     mc_stg.loadMovie(hoshi("stg_1.swf"));
 
     CHECK(mc_stg.getBytesTotal() > 0,
@@ -82,7 +115,6 @@ void test_event_ordering() {
     CHECK(mc_stg.getCurrentFrame() == 1,
           "mc_stg starts on frame 1 (stopped)");
 
-    // Set up onEnterFrame — exactly like Hoshi Saga AS2 code
     bool stage_appeared = false;
     int  enter_frame_count = 0;
 
@@ -94,17 +126,16 @@ void test_event_ordering() {
                enter_frame_count, loaded, total);
 
         if (total > 0 && loaded == total) {
-            mc_stg.play();              // ← AS2: _root.mc_stg.play()
-            mc_load.onEnterFrame = nullptr; // ← AS2: this.removeMovieClip()
+            mc_stg.play();
+            mc_load.onEnterFrame = nullptr;
             stage_appeared = true;
         }
     };
 
-    // Run engine ticks — simulating requestAnimationFrame loop
     printf("  Running ticks...\n");
     for (int tick = 1; tick <= 10; tick++) {
         printf("  --- Tick %d ---\n", tick);
-        mc_stg.tick();   // processLoad FIRST → then onEnterFrame
+        mc_stg.tick();
         mc_load.tick();
         if (mc_stg.getCurrentFrame() == 2) break;
     }
@@ -169,6 +200,7 @@ int main() {
     printf("Using HOSHI_PATH: %s\n", HOSHI_BASE.c_str());
 
     test_swf_parsing();
+    test_tag_parsing();
     test_event_ordering();
     test_all_stages_loadmovie();
 

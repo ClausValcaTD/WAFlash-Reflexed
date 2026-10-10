@@ -15,8 +15,12 @@
  */
 
 #include "avm2.hpp"
+#include "../swf/swf_tags.hpp"
+#include "../swf/swf_loader.hpp"
+#include "../render/display_list.hpp"
 #include <cstdio>
 #include <cstdlib>
+#include <vector>
 
 #ifdef HAS_AVMPLUS
 #include "MMgc/GC.h"
@@ -39,6 +43,20 @@ public:
 #endif
 
 namespace waflash {
+
+// Store parsed SWF data
+static std::vector<uint8_t>  g_swf_body;
+static SWFTagParser          g_tag_parser;
+static DisplayList           g_display_list;
+static int                   g_current_frame = 0;
+static int                   g_frame_count   = 0;
+
+// Store tags per frame for playback
+struct FrameData {
+    std::vector<SWFTag> tags;
+    std::vector<std::vector<uint8_t>> tag_data; // owned copies
+};
+static std::vector<FrameData> g_frames;
 
 AVM2Context::AVM2Context()
     : m_initialized(false), m_gc(nullptr), m_core(nullptr), m_toplevel(nullptr) {}
@@ -73,26 +91,128 @@ bool AVM2Context::init() {
 bool AVM2Context::loadSWF(const std::string& url) {
     if (!m_initialized) return false;
 
-#ifdef HAS_AVMPLUS
-    // Load SWF bytecode into avmplus
-    std::printf("[AVM2] Loading SWF into real AvmCore: %s\n", url.c_str());
-    // TODO: parse ABC bytecode from SWF tags and feed to AvmCore
-#else
-    std::printf("[AVM2] Stub: Loading SWF '%s'\n", url.c_str());
-#endif
+    std::printf("[AVM2] Loading SWF: %s\n", url.c_str());
+
+    SWFLoader loader;
+    if (!loader.load(url)) {
+        std::printf("[AVM2] Failed to load SWF: %s\n", url.c_str());
+        return false;
+    }
+
+    g_swf_body = loader.getDecompressedBody();
+    if (g_swf_body.empty()) {
+        std::printf("[AVM2] Empty SWF body\n");
+        return false;
+    }
+
+    std::printf("[AVM2] SWF loaded: %zu bytes decompressed\n", g_swf_body.size());
+
+    g_frames.clear();
+    g_frames.emplace_back(); // frame 0
+
+    g_tag_parser.parse(g_swf_body.data(), g_swf_body.size(),
+        [](const SWFTag& tag) {
+            FrameData& frame = g_frames.back();
+
+            std::vector<uint8_t> data_copy(tag.data, tag.data + tag.length);
+            frame.tag_data.push_back(std::move(data_copy));
+
+            SWFTag tag_copy = tag;
+            tag_copy.data = frame.tag_data.back().data();
+            frame.tags.push_back(tag_copy);
+
+            if (tag.id == TagID::ShowFrame) {
+                g_frames.emplace_back();
+            }
+        });
+
+    g_frame_count = static_cast<int>(g_frames.size());
+    g_current_frame = 0;
+
+    std::printf("[AVM2] Parsed %d frames, %d tag groups\n",
+                g_frame_count, static_cast<int>(g_frames.size()));
 
     return true;
 }
 
 void AVM2Context::executeFrame() {
     if (!m_initialized) return;
+    if (g_frames.empty()) return;
+    if (g_current_frame >= g_frame_count) return;
 
-#ifdef HAS_AVMPLUS
-    if (m_core) {
-        // Execute pending ActionScript operations
-        // m_core->executeTimeout() or equivalent frame tick
+    const FrameData& frame = g_frames[g_current_frame];
+
+    for (const SWFTag& tag : frame.tags) {
+        switch (tag.id) {
+            case TagID::SetBackgroundColor:
+                break;
+
+            case TagID::PlaceObject2: {
+                if (tag.length < 3) break;
+                uint8_t flags    = tag.data[0];
+                uint16_t depth   = tag.data[1] | (tag.data[2] << 8);
+                uint16_t char_id = 0;
+                size_t pos = 3;
+
+                bool has_char   = flags & 0x02;
+                bool has_matrix = flags & 0x04;
+                bool has_name   = flags & 0x20;
+                (void)has_matrix;
+
+                if (has_char && pos + 2 <= tag.length) {
+                    char_id = tag.data[pos] | (tag.data[pos+1] << 8);
+                    pos += 2;
+                }
+
+                std::string name = "";
+                if (has_name) {
+                    while (pos < tag.length && tag.data[pos]) {
+                        name += static_cast<char>(tag.data[pos++]);
+                    }
+                }
+
+                g_display_list.placeObject(depth, char_id, name);
+                std::printf("[AVM2] PlaceObject2: depth=%d char=%d name='%s'\n",
+                            depth, char_id, name.c_str());
+                break;
+            }
+
+            case TagID::RemoveObject2: {
+                if (tag.length < 2) break;
+                uint16_t depth = tag.data[0] | (tag.data[1] << 8);
+                g_display_list.removeObject(depth);
+                break;
+            }
+
+            case TagID::DoAction:
+                std::printf("[AVM2] DoAction: %u bytes AS2 bytecode (frame %d)\n",
+                            tag.length, g_current_frame);
+                break;
+
+            case TagID::DoInitAction:
+                std::printf("[AVM2] DoInitAction: %u bytes\n", tag.length);
+                break;
+
+            case TagID::DefineSprite:
+                std::printf("[AVM2] DefineSprite: %u bytes\n", tag.length);
+                break;
+
+            case TagID::ShowFrame:
+                std::printf("[AVM2] ShowFrame: frame %d displayed\n",
+                            g_current_frame);
+                std::printf("[Renderer] Frame rendered (display list: %zu objects)\n",
+                            g_display_list.objects().size());
+                break;
+
+            default:
+                break;
+        }
     }
-#endif
+
+    g_current_frame++;
+    if (g_current_frame >= g_frame_count) {
+        g_current_frame = 0; // loop
+    }
 }
 
 void AVM2Context::shutdown() {
