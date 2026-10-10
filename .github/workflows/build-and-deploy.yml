@@ -1,0 +1,179 @@
+name: Build WASM & Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # ─── Job 1: Native build + tests ───────────────────
+  test:
+    name: Native Build & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y build-essential zlib1g-dev
+
+      - name: Build native
+        run: |
+          mkdir -p build
+          g++ -std=c++17 -Wall -Isrc/ \
+            src/core/engine.cpp \
+            src/core/play_stop.cpp \
+            src/core/memfs.cpp \
+            src/avm/avm2.cpp \
+            src/avm/movie_clip.cpp \
+            src/swf/swf_loader.cpp \
+            src/render/webgl_renderer.cpp \
+            src/render/canvas_renderer.cpp \
+            src/audio/audio.cpp \
+            src/bridge/external_interface.cpp \
+            src/memory/allocator.cpp \
+            tests/test_engine.cpp \
+            -o build/test_engine -lz
+
+      - name: Run engine tests
+        run: ./build/test_engine
+
+      - name: Build Hoshi test
+        run: |
+          g++ -std=c++17 -Wall -Isrc/ \
+            src/core/engine.cpp \
+            src/core/play_stop.cpp \
+            src/core/memfs.cpp \
+            src/avm/avm2.cpp \
+            src/avm/movie_clip.cpp \
+            src/swf/swf_loader.cpp \
+            src/render/webgl_renderer.cpp \
+            src/render/canvas_renderer.cpp \
+            src/audio/audio.cpp \
+            src/bridge/external_interface.cpp \
+            src/memory/allocator.cpp \
+            tests/test_hoshi.cpp \
+            -o build/test_hoshi -lz
+
+      - name: Run Hoshi Saga tests
+        run: ./build/test_hoshi
+        env:
+          HOSHI_PATH: games/hoshi1/
+
+  # ─── Job 2: Emscripten WASM build ──────────────────
+  build-wasm:
+    name: Build WASM (Emscripten)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.61
+          actions-cache-folder: emsdk-cache
+
+      - name: Verify Emscripten
+        run: emcc --version
+
+      - name: Build WASM
+        run: make -f Makefile.emscripten
+
+      - name: Verify WASM output
+        run: |
+          ls -lh dist/
+          file dist/waflash-reflexed.wasm
+          # Check magic bytes
+          python3 -c "
+          data = open('dist/waflash-reflexed.wasm','rb').read(4)
+          assert data == b'\x00asm', f'Invalid WASM magic: {data!r}'
+          print('WASM magic bytes: OK')
+          "
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-build
+          path: dist/
+          retention-days: 7
+
+  # ─── Job 3: Deploy to GitHub Pages ─────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-wasm
+    if: github.ref == 'refs/heads/main'
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download WASM build
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-build
+          path: dist/
+
+      - name: Prepare Pages directory
+        run: |
+          mkdir -p pages/
+
+          # Copy web player
+          cp dist/waflash-reflexed.wasm    pages/
+          cp dist/waflash-reflexed.js      pages/
+          cp dist/waflash-reflexed-loader.js pages/
+
+          # Copy player HTML (rename to index.html)
+          if [ -f "dist/player.html" ]; then
+            cp dist/player.html pages/index.html
+          elif [ -f "index.html" ]; then
+            cp index.html pages/
+          fi
+
+          # Copy game files for demo
+          if [ -d "games/" ]; then
+            cp -r games/ pages/games/
+          fi
+
+          # Copy WAFlash original as fallback
+          if [ -f "waflash.wasm" ]; then
+            cp waflash.wasm pages/
+            cp waflash.min.js pages/
+            cp waflash-player.min.js pages/ 2>/dev/null || true
+          fi
+
+          echo "Pages directory contents:"
+          ls -lh pages/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
