@@ -20,11 +20,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(
     src/
-    deps/avmplus/core
-    deps/avmplus/MMgc
-    deps/avmplus
     deps/swf-parser/include
 )
+
+find_package(ZLIB REQUIRED)
+
+find_package(LibLZMA)
 
 set(ENGINE_SOURCES
     src/core/engine.cpp
@@ -39,7 +40,56 @@ set(ENGINE_SOURCES
     src/memory/allocator.cpp
 )
 
+set(AVMPLUS_DIR ${CMAKE_SOURCE_DIR}/deps/avmplus)
+set(ENABLE_AVMPLUS OFF)
+
+# Note: avmplus requires a complex build toolchain (configure.py/avmfeatures) to generate headers like avmhost-features.h.
+# When buildable, target_compile_definitions adds HAS_AVMPLUS=1. Otherwise fallback to clean #ifdef stub.
+if(EXISTS ${AVMPLUS_DIR}/core/AvmCore.cpp AND EXISTS ${AVMPLUS_DIR}/generated/avmhost-features.h)
+    set(AVMPLUS_SOURCES
+        ${AVMPLUS_DIR}/core/AvmCore.cpp
+        ${AVMPLUS_DIR}/core/Toplevel.cpp
+        ${AVMPLUS_DIR}/core/ScriptObject.cpp
+        ${AVMPLUS_DIR}/core/ClassClosure.cpp
+        ${AVMPLUS_DIR}/core/FunctionClass.cpp
+        ${AVMPLUS_DIR}/core/ArrayClass.cpp
+        ${AVMPLUS_DIR}/core/StringClass.cpp
+        ${AVMPLUS_DIR}/MMgc/GC.cpp
+        ${AVMPLUS_DIR}/MMgc/GCHeap.cpp
+    )
+
+    add_library(avmplus STATIC ${AVMPLUS_SOURCES})
+
+    target_include_directories(avmplus PUBLIC
+        ${AVMPLUS_DIR}
+        ${AVMPLUS_DIR}/core
+        ${AVMPLUS_DIR}/MMgc
+        ${AVMPLUS_DIR}/VMPI
+        ${AVMPLUS_DIR}/AVMPI
+        ${AVMPLUS_DIR}/pcre
+        ${AVMPLUS_DIR}/generated
+    )
+
+    target_compile_definitions(avmplus PUBLIC
+        VMCFG_EVAL=1
+        AVMPLUS_LITTLE_ENDIAN=1
+    )
+
+    set(ENABLE_AVMPLUS ON)
+endif()
+
 add_executable(waflash-reflexed src/main.cpp ${ENGINE_SOURCES})
+target_link_libraries(waflash-reflexed PRIVATE ZLIB::ZLIB)
+
+if(LIBLZMA_FOUND)
+    target_link_libraries(waflash-reflexed PRIVATE LibLZMA::LibLZMA)
+    target_compile_definitions(waflash-reflexed PRIVATE HAS_LZMA=1)
+endif()
+
+if(ENABLE_AVMPLUS)
+    target_link_libraries(waflash-reflexed PRIVATE avmplus)
+    target_compile_definitions(waflash-reflexed PRIVATE HAS_AVMPLUS=1)
+endif()
 
 # Target compilation options
 if(MSVC)
@@ -50,3 +100,14 @@ endif()
 
 # Test target
 add_executable(test_engine tests/test_engine.cpp ${ENGINE_SOURCES})
+target_link_libraries(test_engine PRIVATE ZLIB::ZLIB)
+
+if(LIBLZMA_FOUND)
+    target_link_libraries(test_engine PRIVATE LibLZMA::LibLZMA)
+    target_compile_definitions(test_engine PRIVATE HAS_LZMA=1)
+endif()
+
+if(ENABLE_AVMPLUS)
+    target_link_libraries(test_engine PRIVATE avmplus)
+    target_compile_definitions(test_engine PRIVATE HAS_AVMPLUS=1)
+endif()

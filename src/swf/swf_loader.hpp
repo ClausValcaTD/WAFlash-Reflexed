@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace waflash {
 
@@ -41,10 +42,13 @@ public:
     const SWFHeader& getHeader() const;
     uint8_t getVersion() const;
     bool isAS3() const; // SWF version >= 9
+    bool isCompressed() const;
+    const std::vector<uint8_t>& getDecompressedBody() const;
 
 private:
     SWFHeader m_header;
     bool m_loaded;
+    std::vector<uint8_t> m_decompressed_body; // stores FWS/CWS/ZWS body
 };
 
 } // namespace waflash
