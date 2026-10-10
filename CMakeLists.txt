@@ -33,6 +33,7 @@ set(ENGINE_SOURCES
     src/core/memfs.cpp
     src/swf/swf_loader.cpp
     src/avm/avm2.cpp
+    src/avm/movie_clip.cpp
     src/render/webgl_renderer.cpp
     src/render/canvas_renderer.cpp
     src/audio/audio.cpp
@@ -110,4 +111,29 @@ endif()
 if(ENABLE_AVMPLUS)
     target_link_libraries(test_engine PRIVATE avmplus)
     target_compile_definitions(test_engine PRIVATE HAS_AVMPLUS=1)
+endif()
+
+# Hoshi Saga Test Target
+add_executable(test_hoshi
+    tests/test_hoshi.cpp
+    src/avm/movie_clip.cpp
+    src/swf/swf_loader.cpp
+    src/core/engine.cpp
+    src/core/play_stop.cpp
+    src/core/memfs.cpp
+    src/avm/avm2.cpp
+    src/audio/audio.cpp
+    src/memory/allocator.cpp
+)
+target_include_directories(test_hoshi PRIVATE src/)
+target_link_libraries(test_hoshi PRIVATE ZLIB::ZLIB)
+
+if(LIBLZMA_FOUND)
+    target_link_libraries(test_hoshi PRIVATE LibLZMA::LibLZMA)
+    target_compile_definitions(test_hoshi PRIVATE HAS_LZMA=1)
+endif()
+
+if(ENABLE_AVMPLUS)
+    target_link_libraries(test_hoshi PRIVATE avmplus)
+    target_compile_definitions(test_hoshi PRIVATE HAS_AVMPLUS=1)
 endif()

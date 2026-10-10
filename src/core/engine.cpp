@@ -16,12 +16,16 @@
 
 #include "engine.hpp"
 #include "avm/avm2.hpp"
+#include "avm/movie_clip.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <vector>
+#include <memory>
 
 EngineContext* g_engine = nullptr;
 waflash::AVM2Context* g_avm2 = nullptr;
+static std::vector<std::unique_ptr<waflash::MovieClip>> g_clips;
 
 void engine_init(const char* swf_url, bool webgl, bool disable_filters) {
     (void)swf_url;
@@ -60,11 +64,11 @@ extern "C" void engine_tick() {
     if (!g_engine) return;
     if (g_engine->playback_state != STATE_PLAYING) return;
 
-    // 1. Execute AVM2 frame tick
-    if (g_avm2) {
-        g_avm2->executeFrame();
+    // Tick all clips — each does processLoad → advanceFrame → onEnterFrame
+    for (auto& clip : g_clips) {
+        if (clip) clip->tick();
     }
 
-    // 2. Advance MovieClip timelines
+    if (g_avm2) g_avm2->executeFrame();
     g_engine->timeline_counter++;
 }
