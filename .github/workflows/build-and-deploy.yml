@@ -38,8 +38,10 @@ jobs:
             src/avm/avm2.cpp \
             src/avm/movie_clip.cpp \
             src/swf/swf_loader.cpp \
+            src/swf/swf_tags.cpp \
             src/render/webgl_renderer.cpp \
             src/render/canvas_renderer.cpp \
+            src/render/display_list.cpp \
             src/audio/audio.cpp \
             src/bridge/external_interface.cpp \
             src/memory/allocator.cpp \
@@ -58,8 +60,10 @@ jobs:
             src/avm/avm2.cpp \
             src/avm/movie_clip.cpp \
             src/swf/swf_loader.cpp \
+            src/swf/swf_tags.cpp \
             src/render/webgl_renderer.cpp \
             src/render/canvas_renderer.cpp \
+            src/render/display_list.cpp \
             src/audio/audio.cpp \
             src/bridge/external_interface.cpp \
             src/memory/allocator.cpp \

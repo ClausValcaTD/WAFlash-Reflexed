@@ -32,10 +32,12 @@ set(ENGINE_SOURCES
     src/core/play_stop.cpp
     src/core/memfs.cpp
     src/swf/swf_loader.cpp
+    src/swf/swf_tags.cpp
     src/avm/avm2.cpp
     src/avm/movie_clip.cpp
     src/render/webgl_renderer.cpp
     src/render/canvas_renderer.cpp
+    src/render/display_list.cpp
     src/audio/audio.cpp
     src/bridge/external_interface.cpp
     src/memory/allocator.cpp
@@ -118,6 +120,8 @@ add_executable(test_hoshi
     tests/test_hoshi.cpp
     src/avm/movie_clip.cpp
     src/swf/swf_loader.cpp
+    src/swf/swf_tags.cpp
+    src/render/display_list.cpp
     src/core/engine.cpp
     src/core/play_stop.cpp
     src/core/memfs.cpp
