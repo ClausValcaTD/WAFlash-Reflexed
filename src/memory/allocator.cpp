@@ -22,6 +22,10 @@
 #include <stdlib.h>
 #endif
 
+#if defined(__EMSCRIPTEN__)
+extern "C" void* emscripten_builtin_memalign(size_t alignment, size_t size);
+#endif
+
 void* waflash_malloc(size_t size) {
     // dlmalloc specification:
     // Smallbins: size <= 244 bytes (O(1) fast-path)
@@ -43,7 +47,6 @@ void* waflash_memalign(size_t alignment, size_t size) {
 
 #if defined(__EMSCRIPTEN__)
     // Emscripten builtin memalign
-    extern "C" void* emscripten_builtin_memalign(size_t alignment, size_t size);
     return emscripten_builtin_memalign(alignment, size);
 #elif defined(_MSC_VER)
     return _aligned_malloc(size, alignment);
