@@ -4,6 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WAFlash-ReFlexed Player</title>
+
+  <!-- Eruda Mobile DevTools (debug panel) -->
+  <script>
+    // Only load Eruda when ?debug=1 is in URL or on mobile
+    // Avoids loading on desktop where real devtools exist
+    const isDebugMode = new URLSearchParams(location.search).has('debug');
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isDebugMode || isMobile) {
+      (function () {
+        var src = 'https://cdn.jsdelivr.net/npm/eruda@3.4.1/eruda.min.js';
+        if (!/eruda/.test(navigator.userAgent) && !/undefined/.test(src)) {
+          document.write('<script src="' + src + '"><\/script>');
+          document.write('<script>eruda.init()<\/script>');
+        }
+      })();
+    }
+  </script>
+
   <style>
     :root {
       --bg-color: #0a0a0f;
